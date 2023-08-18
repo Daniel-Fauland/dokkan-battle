@@ -1,6 +1,6 @@
 # DBZ Dokkan Battle web scraper 9000
 
-This repo scrapes the Dokkan Battle wiki page to create a csv/excel file for all story events and all UR/LR characters in the game.
+This repo scrapes the Dokkan Battle [wiki](https://dbz-dokkanbattle.fandom.com/wiki/Dragon_Ball_Z_Dokkan_Battle_Wiki) to create a csv/excel file for all story events and all UR/LR characters in the game.
 
 - [Introduction](#introduction)
 - [What can I do with this data?](#what-can-i-do-with-this-data)
