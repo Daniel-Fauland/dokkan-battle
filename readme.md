@@ -68,7 +68,7 @@ If you want to get the latest data you have to run the script yourself.
 
 If you have no idea of coding whatsoever just follow these steps:
 
-1. Go to [Google colab](https://colab.research.google.com) and login in with you google account (it's free)
+1. Go to [Google colab](https://colab.research.google.com) and login in with your google account (it's free)
 2. Click on "New notebook" in case you are asked
 3. Copy everything in the file [dbz-db-scraper-colab-version.py](dbz-db-scraper-colab-version.py)
 4. Paste the entire code in colab and click the run icon
@@ -108,5 +108,5 @@ python dbz-db-scraper.py
 
 Note:
 I could have also created a python package for extracting information from dbz dokkan wiki pages but I was to lazy tbh.
-However in case anyone wants to that feel free to use my code. Certain functions can probably be used with very little changes necessary to extract certain information.
+However in case anyone wants to feel free to use my code. Certain functions can probably be used with very little changes necessary to extract certain information.
 BTW: The only difference between the normal py and colab version is that there are slightly different prints in the colab version as colab notebooks do not support prints with end='\r'
