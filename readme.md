@@ -55,7 +55,10 @@ As with any Excel table you can sort and filter the data however you like.
 
 For example: Showing all Super class characters that are part of "Kamehameha" category, released after 2023-01-01 and orderd by release date descending.
 
-![ExcelTable](https://imgur.com/a/b5RCFiW)
+![ExcelTable](https://i.imgur.com/E5AN3Q4.png)
+
+Here is a sreenshot of the story events sorted by release date descending:
+![CSVTable](https://i.imgur.com/psBtyFQ.png)
 
 ## How to use this tool
 
