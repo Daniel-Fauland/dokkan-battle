@@ -12,7 +12,7 @@ def get_content(url):
     return soup
 
 
-def get_story_events(content):
+def get_story_events(content, base_url, blacklist):
     story_events = []
     for row in content.find('div', attrs={'id': 'mw-content-text'}).find_all('a', href=True):
         if row.find('img') and "/wiki/" in row['href'] and row['href'] not in blacklist:
@@ -28,8 +28,8 @@ def read_story_events(story_events):
     # Define regex pattern for Date extraction
     pattern = r'(?<!:\s)(?<!\d)\d{1} [A-Za-z]{3} \d{4}|(?<!: )\d{2} [A-Za-z]{3} \d{4}'
     # Iterate over each story event url
+    print(f"\tRetreaving information about story events")
     for x, event_url in enumerate(story_events):
-        print(f"\tRetreaving information about story event {x+1}/{len(story_events)}", end='\r')
         # Get the content of the url
         content = get_content(event_url)
         # Get the title of the page
@@ -66,16 +66,15 @@ def read_story_events(story_events):
             my_df["Japan release"].append("unknown")
         if len(my_df["Global release"]) < len(my_df["Event name"]):
             my_df["Global release"].append("unknown")
-    print()
     return my_df
 
 
-def get_character_list(part_url, type):
+def get_character_list(part_url, type, base_url, blacklist):
     suffix = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
     character_url_list = []
     character_name_list = []
+    print(f"\tRetrieving character pages for {type}")
     for x, char in enumerate(suffix):
-        print(f"\tRetrieving character page {x+1}/{len(suffix)} for {type}", end='\r')
         url = part_url + char
         content = get_content(url)
         for row in content.find('div', attrs={'id': 'mw-content-text'}).find_all('a', href=True):
@@ -89,7 +88,6 @@ def get_character_list(part_url, type):
                     continue
     character_url_list_uq = list(dict.fromkeys(character_url_list))
     character_name_list_uq = list(dict.fromkeys(character_name_list))
-    print()
     return character_url_list_uq, character_name_list_uq
 
 
@@ -300,16 +298,15 @@ def read_characters(characters, names):
     my_df = {"Name": [], "Rarity": [], "Class": [], "Type": [], "Global release": [], "Japan release": [], "Global EZA release": [], "Japan EZA release": [], "Global EZA": [], "Japan EZA": [], "HP 55%": [], "ATK 55%": [], "DEF 55%": [], "HP 100%": [], "ATK 100%": [], "DEF 100%": [], "HP 55% EZA": [], "ATK 55% EZA": [], "DEF 55% EZA": [], "HP 100% EZA": [], "ATK 100% EZA": [], "DEF 100% EZA": [], "Categories": [], "ID": [], "Url": []}
     pattern = r'(?<!:\s)(?<!\d)\d{1} [A-Za-z]{3} \d{4}|(?<!: )\d{2} [A-Za-z]{3} \d{4}'
     id_pattern = r'<center>\d{4,5}</center>'
+    print(f"\tRetrieving information of characters") 
     for x, name in enumerate(names):
-        url = characters[x]
-        print(f"\tRetrieving information of character {x+1}/{len(characters)}", end='\r')       
+        url = characters[x]    
         my_df["Name"].append(name)
         my_df["Url"].append(url)
         content = get_content(url)
         my_df = get_card_rarity_type_id(content, id_pattern, my_df, names, x)
         my_df = get_card_release_date(content, pattern, my_df, x)
         my_df = get_card_stats(content, my_df, x)
-    print()
     df = pd.DataFrame.from_dict(my_df)
     return df
 
@@ -358,22 +355,26 @@ def export_results(dataframe, kind, fname):
     print(f"\tDBZ Dokkan Battle excel file saved at: '{excel_file_path}'")
 
 
-print("Starting script:")
-print("Scraping web. This can take a while...")
-base_url = "https://dbz-dokkanbattle.fandom.com"
-story_events_url = "https://dbz-dokkanbattle.fandom.com/wiki/Story_Events"
-character_list_ur_base_url = "https://dbz-dokkanbattle.fandom.com/wiki/Category:UR?from="
-character_list_lr_base_url = "https://dbz-dokkanbattle.fandom.com/wiki/Category:LR?from="
-blacklist = ["/wiki/Category:N", "/wiki/Category:R", "/wiki/Category:SR", "/wiki/Category:SSR", "/wiki/Category:UR", "/wiki/Category:LR", "/wiki/Category:AGL", "/wiki/Category:TEQ", "/wiki/Category:INT", "/wiki/Category:STR", "/wiki/Category:PHY", "/wiki/Rainbow_Ki", "/wiki/Weekly_Events", "/wiki/Bonus_Events", "/wiki/Story_Events", "/wiki/Dragon_Ball_Story", "/wiki/Strike_Events", "/wiki/Dokkan_Events", "/wiki/Special_Events", "/wiki/Limit_Events", "/wiki/Prime_Battle_Events", "/wiki/Extreme_Z-Battle_Events", "/wiki/Challenge_Events", "/wiki/Limited_Events", "/wiki/All_Cards:_(1)001_to_(1)100"]
-story_content = get_content(story_events_url)
-story_events = get_story_events(story_content)
-story_events_df = read_story_events(story_events)
-character_url_list_ur, character_name_list_ur = get_character_list(character_list_ur_base_url, "UR")
-character_url_list_lr, character_name_list_lr = get_character_list(character_list_lr_base_url, "LR")
-character_url_list = character_url_list_ur + character_url_list_lr
-character_name_list = character_name_list_ur + character_name_list_lr
-character_url_list, character_name_list = clean_lists(character_url_list, character_name_list)
-characters_df = read_characters(character_url_list, character_name_list)
-characters_df = remove_duplicate_characters(characters_df)
-export_results(story_events_df, "story events", "dbz_db_story_events")  
-export_results(characters_df, "characters", "dbz_db_characters")    
+def start_script():
+    print("Starting script:")
+    print("Scraping web. This can take a while...")
+    base_url = "https://dbz-dokkanbattle.fandom.com"
+    story_events_url = "https://dbz-dokkanbattle.fandom.com/wiki/Story_Events"
+    character_list_ur_base_url = "https://dbz-dokkanbattle.fandom.com/wiki/Category:UR?from="
+    character_list_lr_base_url = "https://dbz-dokkanbattle.fandom.com/wiki/Category:LR?from="
+    blacklist = ["/wiki/Category:N", "/wiki/Category:R", "/wiki/Category:SR", "/wiki/Category:SSR", "/wiki/Category:UR", "/wiki/Category:LR", "/wiki/Category:AGL", "/wiki/Category:TEQ", "/wiki/Category:INT", "/wiki/Category:STR", "/wiki/Category:PHY", "/wiki/Rainbow_Ki", "/wiki/Weekly_Events", "/wiki/Bonus_Events", "/wiki/Story_Events", "/wiki/Dragon_Ball_Story", "/wiki/Strike_Events", "/wiki/Dokkan_Events", "/wiki/Special_Events", "/wiki/Limit_Events", "/wiki/Prime_Battle_Events", "/wiki/Extreme_Z-Battle_Events", "/wiki/Challenge_Events", "/wiki/Limited_Events", "/wiki/All_Cards:_(1)001_to_(1)100"]
+    story_content = get_content(story_events_url)
+    story_events = get_story_events(story_content, base_url, blacklist)
+    story_events_df = read_story_events(story_events)
+    character_url_list_ur, character_name_list_ur = get_character_list(character_list_ur_base_url, "UR", base_url, blacklist)
+    character_url_list_lr, character_name_list_lr = get_character_list(character_list_lr_base_url, "LR", base_url, blacklist)
+    character_url_list = character_url_list_ur + character_url_list_lr
+    character_name_list = character_name_list_ur + character_name_list_lr
+    character_url_list, character_name_list = clean_lists(character_url_list, character_name_list)
+    characters_df = read_characters(character_url_list, character_name_list)
+    characters_df = remove_duplicate_characters(characters_df)
+    export_results(story_events_df, "story events", "dbz_db_story_events")  
+    export_results(characters_df, "characters", "dbz_db_characters")    
+
+if __name__ == "__main__":
+    start_script()
