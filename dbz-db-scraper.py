@@ -12,7 +12,7 @@ def get_content(url):
     return soup
 
 
-def get_story_events(content):
+def get_story_events(content, base_url, blacklist):
     story_events = []
     for row in content.find('div', attrs={'id': 'mw-content-text'}).find_all('a', href=True):
         if row.find('img') and "/wiki/" in row['href'] and row['href'] not in blacklist:
@@ -70,7 +70,7 @@ def read_story_events(story_events):
     return my_df
 
 
-def get_character_list(part_url, type):
+def get_character_list(part_url, type, base_url, blacklist):
     suffix = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
     character_url_list = []
     character_name_list = []
@@ -87,7 +87,6 @@ def get_character_list(part_url, type):
                     character_url_list.append(full_path)
                 except:
                     continue
-        break  # Remove later
     character_url_list_uq = list(dict.fromkeys(character_url_list))
     character_name_list_uq = list(dict.fromkeys(character_name_list))
     print()
@@ -185,99 +184,48 @@ def get_card_release_date(content, pattern, my_df, x):
     return my_df
 
 
-def get_card_stats(content, stats_pattern, my_df, x):
+def get_card_stats(content, my_df, x):
+    stats_pattern = r'<center>\d{3,5}</center>'
+    stats_pattern_eza = r'<center>\d{4,5}</center>|<center>\d{4,5}\n</center>'
     tables = content.find('div', id='mw-content-text')
+    tables = tables.find_all('table')
     stats = []
     stats_eza = []
     flag = True
-    if my_df["Japan EZA"][x] == "No" and my_df["Global EZA"][x] == "No": 
-        for n, table in enumerate(tables.find_all('table')):
-            if n == 7:
-                for n2, row in enumerate(table):
-                    # print(f"\n########### Row ID 2: {n2}")
-                    # print(row)
-                    if n2 == 1:
-                        for n3, row2 in enumerate(row):
-                            # print(f"\n########### Row ID 3: {n3}")
-                            # print(row2)
-                            if n3 == 17:
-                                try:
-                                    center_tag = row2.find('center')
-                                    if center_tag:
-                                        titles = [a['title'] for a in center_tag.find_all('a')]
-                                        titles = ', '.join(titles)
-                                        my_df["Categories"].append(titles)
-                                        flag = False
-                                except:
-                                    pass
-                            # If unit has active skill
-                            if n3 == 23:
-                                try:
-                                    center_tag = row2.find('center')
-                                    if center_tag:
-                                        titles = [a['title'] for a in center_tag.find_all('a')]
-                                        titles = ', '.join(titles)
-                                        my_df["Categories"].append(titles)
-                                        flag = False
-                                except:
-                                    pass
-                            # If card has unit super attack
-                            if n3 == 25 and flag:
-                                try:
-                                    center_tag = row2.find('center')
-                                    if center_tag:
-                                        titles = [a['title'] for a in center_tag.find_all('a')]
-                                        titles = ', '.join(titles)
-                                        my_df["Categories"].append(titles)
-                                except:
-                                    pass
-            # Find stats for card                
-            if n == 9:
-                ids = re.findall(stats_pattern, str(table))
-                if ids:
-                    # Matched pattern: <center>12345</center>
-                    for i in ids:
-                        char_id = i[8:-9]
-                        stats.append(char_id)
-                    break
-    else:  # EZA characters
-        for n, table in enumerate(tables.find_all('table')):
-            if n == 7:
-                for n2, row in enumerate(table):
-                    if n2 == 1:
-                        for n3, row2 in enumerate(row):
-                            if n3 == 7:
-                                try:
-                                    center_tag = row2.find('center')
-                                    if center_tag:
-                                        titles = [a['title'] for a in center_tag.find_all('a')]
-                                        titles = ', '.join(titles)
-                                        my_df["Categories"].append(titles)
-                                except:
-                                    pass
-            if n == 11:
-                ids = re.findall(stats_pattern, str(table))
-                if ids:
-                    # Matched pattern: <center>12345</center>
-                    for i in ids:
-                        char_id = i[8:-9]
-                        stats.append(char_id)
-            if n == 14:
-                ids = re.findall(stats_pattern, str(table))
-                if ids:
-                    # Matched pattern: <center>12345</center>
-                    for i in ids:
-                        char_id = i[8:-9]
-                        stats_eza.append(char_id)
-        try:  # Add EZA stats
-            my_df["HP 55% EZA"].append(stats_eza[3])
-            my_df["HP 100% EZA"].append(stats_eza[4])
-            my_df["ATK 55% EZA"].append(stats_eza[8])
-            my_df["ATK 100% EZA"].append(stats_eza[9])
-            my_df["DEF 55% EZA"].append(stats_eza[13])
-            my_df["DEF 100% EZA"].append(stats_eza[14])
-        except:
-            pass
+    # if my_df["Japan EZA"][x] == "No" and my_df["Global EZA"][x] == "No":
+    for n in range(len(tables)-1, -1, -1):
+        # Find Categories for card
+        if "Category.png" in str(tables[n]):
+            tr = tables[n].find_all('tr')
+            reversed_tr = list(reversed(tr))[0]
+            try:
+                center_tag = reversed_tr.find('center')
+                if center_tag and flag:
+                    titles = [a['title'] for a in center_tag.find_all('a')]
+                    titles = ', '.join(titles)
+                    my_df["Categories"].append(titles)
+                    flag = False
+            except:
+                pass        
+        # Find stats for card
+        if "Stats.png" in str(tables[n]):  
+            ids = re.findall(stats_pattern, str(tables[n]))
+            if ids:  # Matched pattern: <center>12345</center>
+                for i in ids:
+                    char_id = i[8:-9]
+                    stats.append(char_id)
+                if len(stats) >= 12:
+                    stats = stats[-12:]
+        # Find EZA stats for card
+        if "Extreme_z_awaken_label.png" in str(tables[n]):
+            ids = re.findall(stats_pattern_eza, str(tables[n]))
+            if ids:
+                for i in ids:
+                    char_id = i[8:-9]
+                    stats_eza.append(char_id) 
+                if len(stats_eza) >= 18:
+                    stats_eza = stats_eza[-18:]
+                    stats_eza = [item.replace('\n', '') for item in stats_eza]   
 
     try:  # Add normal stats
         my_df["HP 55%"].append(stats[2])
@@ -286,6 +234,15 @@ def get_card_stats(content, stats_pattern, my_df, x):
         my_df["ATK 100%"].append(stats[7])
         my_df["DEF 55%"].append(stats[10])
         my_df["DEF 100%"].append(stats[11])
+    except:
+        pass
+    try:  # Add EZA stats
+        my_df["HP 55% EZA"].append(stats_eza[4])
+        my_df["HP 100% EZA"].append(stats_eza[5])
+        my_df["ATK 55% EZA"].append(stats_eza[10])
+        my_df["ATK 100% EZA"].append(stats_eza[11])
+        my_df["DEF 55% EZA"].append(stats_eza[16])
+        my_df["DEF 100% EZA"].append(stats_eza[17])
     except:
         pass
     my_df = append_char_na(my_df)
@@ -342,19 +299,16 @@ def clean_lists(characters, names):
 def read_characters(characters, names):
     my_df = {"Name": [], "Rarity": [], "Class": [], "Type": [], "Global release": [], "Japan release": [], "Global EZA release": [], "Japan EZA release": [], "Global EZA": [], "Japan EZA": [], "HP 55%": [], "ATK 55%": [], "DEF 55%": [], "HP 100%": [], "ATK 100%": [], "DEF 100%": [], "HP 55% EZA": [], "ATK 55% EZA": [], "DEF 55% EZA": [], "HP 100% EZA": [], "ATK 100% EZA": [], "DEF 100% EZA": [], "Categories": [], "ID": [], "Url": []}
     pattern = r'(?<!:\s)(?<!\d)\d{1} [A-Za-z]{3} \d{4}|(?<!: )\d{2} [A-Za-z]{3} \d{4}'
-    id_pattern = r'<center>\d{5}</center>'
-    stats_pattern = r'<center>\d{4,5}</center>'
+    id_pattern = r'<center>\d{4,5}</center>'
     for x, name in enumerate(names):
         url = characters[x]
         print(f"\tRetrieving information of character {x+1}/{len(characters)}", end='\r')       
         my_df["Name"].append(name)
         my_df["Url"].append(url)
-        url = "https://dbz-dokkanbattle.fandom.com/wiki/Ally_of_Love_and_Friendship_Videl#Default"
         content = get_content(url)
         my_df = get_card_rarity_type_id(content, id_pattern, my_df, names, x)
         my_df = get_card_release_date(content, pattern, my_df, x)
-        my_df = get_card_stats(content, stats_pattern, my_df, x)
-        break  # Remove later
+        my_df = get_card_stats(content, my_df, x)
     print()
     df = pd.DataFrame.from_dict(my_df)
     return df
@@ -404,22 +358,26 @@ def export_results(dataframe, kind, fname):
     print(f"\tDBZ Dokkan Battle excel file saved at: '{excel_file_path}'")
 
 
-print("Starting script:")
-print("Scraping web. This can take a while...")
-base_url = "https://dbz-dokkanbattle.fandom.com"
-story_events_url = "https://dbz-dokkanbattle.fandom.com/wiki/Story_Events"
-character_list_ur_base_url = "https://dbz-dokkanbattle.fandom.com/wiki/Category:UR?from="
-character_list_lr_base_url = "https://dbz-dokkanbattle.fandom.com/wiki/Category:LR?from="
-blacklist = ["/wiki/Category:N", "/wiki/Category:R", "/wiki/Category:SR", "/wiki/Category:SSR", "/wiki/Category:UR", "/wiki/Category:LR", "/wiki/Category:AGL", "/wiki/Category:TEQ", "/wiki/Category:INT", "/wiki/Category:STR", "/wiki/Category:PHY", "/wiki/Rainbow_Ki", "/wiki/Weekly_Events", "/wiki/Bonus_Events", "/wiki/Story_Events", "/wiki/Dragon_Ball_Story", "/wiki/Strike_Events", "/wiki/Dokkan_Events", "/wiki/Special_Events", "/wiki/Limit_Events", "/wiki/Prime_Battle_Events", "/wiki/Extreme_Z-Battle_Events", "/wiki/Challenge_Events", "/wiki/Limited_Events", "/wiki/All_Cards:_(1)001_to_(1)100"]
-# story_content = get_content(story_events_url)
-# story_events = get_story_events(story_content)
-# story_events_df = read_story_events(story_events)
-character_url_list_ur, character_name_list_ur = get_character_list(character_list_ur_base_url, "UR")
-character_url_list_lr, character_name_list_lr = get_character_list(character_list_lr_base_url, "LR")
-character_url_list = character_url_list_ur + character_url_list_lr
-character_name_list = character_name_list_ur + character_name_list_lr
-character_url_list, character_name_list = clean_lists(character_url_list, character_name_list)
-characters_df = read_characters(character_url_list, character_name_list)
-characters_df = remove_duplicate_characters(characters_df)
-# export_results(story_events_df, "story events", "dbz_db_story_events")  
-# export_results(characters_df, "characters", "dbz_db_characters")    
+def start_script():
+    print("Starting script:")
+    print("Scraping web. This can take a while...")
+    base_url = "https://dbz-dokkanbattle.fandom.com"
+    story_events_url = "https://dbz-dokkanbattle.fandom.com/wiki/Story_Events"
+    character_list_ur_base_url = "https://dbz-dokkanbattle.fandom.com/wiki/Category:UR?from="
+    character_list_lr_base_url = "https://dbz-dokkanbattle.fandom.com/wiki/Category:LR?from="
+    blacklist = ["/wiki/Category:N", "/wiki/Category:R", "/wiki/Category:SR", "/wiki/Category:SSR", "/wiki/Category:UR", "/wiki/Category:LR", "/wiki/Category:AGL", "/wiki/Category:TEQ", "/wiki/Category:INT", "/wiki/Category:STR", "/wiki/Category:PHY", "/wiki/Rainbow_Ki", "/wiki/Weekly_Events", "/wiki/Bonus_Events", "/wiki/Story_Events", "/wiki/Dragon_Ball_Story", "/wiki/Strike_Events", "/wiki/Dokkan_Events", "/wiki/Special_Events", "/wiki/Limit_Events", "/wiki/Prime_Battle_Events", "/wiki/Extreme_Z-Battle_Events", "/wiki/Challenge_Events", "/wiki/Limited_Events", "/wiki/All_Cards:_(1)001_to_(1)100"]
+    story_content = get_content(story_events_url)
+    story_events = get_story_events(story_content, base_url, blacklist)
+    story_events_df = read_story_events(story_events)
+    character_url_list_ur, character_name_list_ur = get_character_list(character_list_ur_base_url, "UR", base_url, blacklist)
+    character_url_list_lr, character_name_list_lr = get_character_list(character_list_lr_base_url, "LR", base_url, blacklist)
+    character_url_list = character_url_list_ur + character_url_list_lr
+    character_name_list = character_name_list_ur + character_name_list_lr
+    character_url_list, character_name_list = clean_lists(character_url_list, character_name_list)
+    characters_df = read_characters(character_url_list, character_name_list)
+    characters_df = remove_duplicate_characters(characters_df)
+    export_results(story_events_df, "story events", "dbz_db_story_events")  
+    export_results(characters_df, "characters", "dbz_db_characters")    
+
+if __name__ == "__main__":
+    start_script()
